@@ -9,15 +9,22 @@ from typing import Optional
 class PluginManager:
     """Manages Claude Code plugins."""
 
-    def __init__(self, claude_dir: Path, required_plugins: list[dict]):
+    def __init__(
+        self,
+        claude_dir: Path,
+        required_plugins: list[dict],
+        custom_plugins_source: Optional[Path] = None,
+    ):
         """Initialize plugin manager.
 
         Args:
             claude_dir: Path to ~/.claude directory
             required_plugins: List of required plugin definitions
+            custom_plugins_source: Path to custom-plugins directory in config
         """
         self.claude_dir = claude_dir
         self.required_plugins = required_plugins
+        self.custom_plugins_source = custom_plugins_source
         self.installed_plugins_path = claude_dir / "plugins" / "installed_plugins.json"
 
     def check_installed(self) -> dict[str, bool]:
@@ -115,3 +122,48 @@ class PluginManager:
             results[plugin_name] = (success, message)
 
         return results
+
+    def check_custom_plugins_installed(self) -> dict[str, bool]:
+        """Check custom plugins by directory + plugin.json presence.
+
+        Returns:
+            Dict mapping plugin name to installation status
+        """
+        if not self.custom_plugins_source or not self.custom_plugins_source.exists():
+            return {}
+
+        status = {}
+        plugins_dir = self.claude_dir / "plugins"
+
+        for plugin_dir in self.custom_plugins_source.iterdir():
+            if not plugin_dir.is_dir():
+                continue
+
+            plugin_name = plugin_dir.name
+            target_dir = plugins_dir / plugin_name
+
+            # Check if directory exists with plugin.json
+            plugin_json = target_dir / ".claude-plugin" / "plugin.json"
+            status[plugin_name] = target_dir.exists() and plugin_json.exists()
+
+        return status
+
+    def get_missing_custom_plugins(self) -> list[str]:
+        """Get list of custom plugin names not installed.
+
+        Returns:
+            List of plugin names
+        """
+        status = self.check_custom_plugins_installed()
+        return [name for name, installed in status.items() if not installed]
+
+    def get_all_plugin_status(self) -> dict:
+        """Unified status for external + custom plugins.
+
+        Returns:
+            Dict with 'external' and 'custom' keys mapping to status dicts
+        """
+        return {
+            "external": self.check_installed(),
+            "custom": self.check_custom_plugins_installed(),
+        }

@@ -57,6 +57,27 @@
       "target_dir": ".claude/plugins",
       "install_type": "check",
       "files": []
+    },
+    {
+      "name": "custom-plugins",
+      "description": "Organization-specific custom plugins",
+      "target_dir": ".claude/plugins",
+      "install_type": "discover",
+      "files": []
+    },
+    {
+      "name": "mcp-servers-external",
+      "description": "External MCP servers (npm, pip, docker)",
+      "target_dir": ".claude",
+      "install_type": "check",
+      "files": []
+    },
+    {
+      "name": "mcp-servers-custom",
+      "description": "Custom MCP server implementations",
+      "target_dir": ".claude/mcp-servers",
+      "install_type": "discover",
+      "files": []
     }
   ]
 }

@@ -1,0 +1,24 @@
+[
+  {
+    "name": "playwright",
+    "description": "Browser automation MCP server for web testing and scraping",
+    "install_method": "npm",
+    "package": "@modelcontextprotocol/server-playwright",
+    "config": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-playwright"],
+      "env": {}
+    }
+  },
+  {
+    "name": "filesystem",
+    "description": "Filesystem access MCP server for file operations",
+    "install_method": "npm",
+    "package": "@modelcontextprotocol/server-filesystem",
+    "config": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/allowed/path"],
+      "env": {}
+    }
+  }
+]

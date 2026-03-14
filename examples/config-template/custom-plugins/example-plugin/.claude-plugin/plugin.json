@@ -1,0 +1,10 @@
+{
+  "name": "example-plugin",
+  "version": "1.0.0",
+  "description": "Example custom plugin for your organization",
+  "author": "Your Organization",
+  "commands": true,
+  "agents": false,
+  "skills": false,
+  "hooks": false
+}

@@ -1,0 +1,4 @@
+# Add any Python dependencies your MCP server needs
+# For example:
+# requests>=2.31.0
+# pydantic>=2.0.0

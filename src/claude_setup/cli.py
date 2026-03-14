@@ -40,6 +40,7 @@ from claude_setup.display import (
     show_summary,
 )
 from claude_setup.installer import Installer, InstallationError
+from claude_setup.mcp_servers import MCPServerManager
 from claude_setup.plugins import PluginManager
 from claude_setup.version import VersionManager
 
@@ -92,11 +93,26 @@ def initialize_managers():
     with open(plugins_file) as f:
         required_plugins = json.load(f)
 
-    plugin_mgr = PluginManager(claude_dir, required_plugins)
+    # Load custom plugins path
+    custom_plugins_source = config_dir / "custom-plugins"
+    if not custom_plugins_source.exists():
+        custom_plugins_source = None
+
+    plugin_mgr = PluginManager(claude_dir, required_plugins, custom_plugins_source)
+
+    # Load required MCP servers
+    mcp_servers_file = config_dir / "mcp-servers" / "required.json"
+    if mcp_servers_file.exists():
+        with open(mcp_servers_file) as f:
+            required_mcp_servers = json.load(f)
+    else:
+        required_mcp_servers = []
+
+    mcp_mgr = MCPServerManager(claude_dir, required_mcp_servers)
 
     installer = Installer(config_dir, claude_dir, registry, backup_mgr, version_mgr)
 
-    return registry, backup_mgr, version_mgr, plugin_mgr, installer
+    return registry, backup_mgr, version_mgr, plugin_mgr, mcp_mgr, installer
 
 
 def _parse_github_url(url: str) -> Optional[tuple[str, str]]:
@@ -181,7 +197,7 @@ def install(
     show_banner(__version__)
 
     try:
-        registry, backup_mgr, version_mgr, plugin_mgr, installer = initialize_managers()
+        registry, backup_mgr, version_mgr, plugin_mgr, mcp_mgr, installer = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         raise typer.Exit(1)
@@ -258,7 +274,7 @@ def rollback(
     show_banner(__version__)
 
     try:
-        _, backup_mgr, _, _, _ = initialize_managers()
+        _, backup_mgr, _, _, _, _ = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         raise typer.Exit(1)
@@ -307,7 +323,7 @@ def status():
     show_banner(__version__)
 
     try:
-        _, _, version_mgr, _, _ = initialize_managers()
+        _, _, version_mgr, _, _, _ = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         raise typer.Exit(1)
@@ -328,7 +344,7 @@ def backups(
     show_banner(__version__)
 
     try:
-        _, backup_mgr, _, _, _ = initialize_managers()
+        _, backup_mgr, _, _, _, _ = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         raise typer.Exit(1)
@@ -354,7 +370,7 @@ def plugins(
     show_banner(__version__)
 
     try:
-        _, _, _, plugin_mgr, _ = initialize_managers()
+        _, _, _, plugin_mgr, _, _ = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         raise typer.Exit(1)
@@ -399,6 +415,57 @@ def plugins(
 
 
 @app.command()
+def mcp_servers():
+    """Check status of required MCP servers."""
+    show_banner(__version__)
+
+    try:
+        _, _, _, _, mcp_mgr, _ = initialize_managers()
+    except Exception as e:
+        print_error(f"Initialization failed: {e}")
+        raise typer.Exit(1)
+
+    if not mcp_mgr.required_servers:
+        print_info("No MCP servers configured in this setup")
+        return
+
+    configured = mcp_mgr.check_configured()
+
+    console.print("\n[bold]MCP Server Status:[/bold]\n")
+
+    # Create a table-like display
+    for server in mcp_mgr.required_servers:
+        name = server["name"]
+        desc = server.get("description", "")
+        is_configured = configured[name]
+
+        # Check executable status
+        if is_configured:
+            available, msg = mcp_mgr.check_server_executable(server)
+            config_status = "[green]✓ Configured[/green]"
+            exec_status = "[green]✓ Available[/green]" if available else f"[yellow]⚠ {msg}[/yellow]"
+        else:
+            config_status = "[red]✗ Not configured[/red]"
+            exec_status = "[dim]—[/dim]"
+
+        console.print(f"[bold]{name}[/bold]")
+        console.print(f"  Description: {desc}")
+        console.print(f"  Configuration: {config_status}")
+        console.print(f"  Executable: {exec_status}")
+        console.print()
+
+    # Show missing servers
+    missing = mcp_mgr.get_missing_servers()
+    if missing:
+        console.print("[bold yellow]Installation Instructions:[/bold yellow]\n")
+        for server in missing:
+            console.print(f"[bold]{server['name']}:[/bold]")
+            for instruction in mcp_mgr.get_install_instructions(server):
+                console.print(f"  {instruction}")
+            console.print()
+
+
+@app.command()
 def update(
     check: bool = typer.Option(False, "--check", help="Check for updates only"),
 ):
@@ -406,7 +473,7 @@ def update(
     show_banner(__version__)
 
     try:
-        registry, _, version_mgr, _, installer = initialize_managers()
+        registry, _, version_mgr, _, _, installer = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         raise typer.Exit(1)
@@ -645,6 +712,7 @@ def interactive_menu():
                     questionary.Choice("📦 Install Configuration", value="install"),
                     questionary.Choice("📊 Check Installation Status", value="status"),
                     questionary.Choice("🔌 Manage Plugins", value="plugins"),
+                    questionary.Choice("🔧 Manage MCP Servers", value="mcp-servers"),
                     questionary.Choice("💾 View Backups", value="backups"),
                     questionary.Choice("⏮️ Rollback to Backup", value="rollback"),
                     questionary.Choice("🔄 Check for Updates", value="update"),
@@ -667,6 +735,8 @@ def interactive_menu():
                 status()
             elif choice == "plugins":
                 interactive_plugins()
+            elif choice == "mcp-servers":
+                interactive_mcp_servers()
             elif choice == "backups":
                 interactive_backups()
             elif choice == "rollback":
@@ -697,7 +767,7 @@ def interactive_menu():
 def interactive_install():
     """Interactive installation flow."""
     try:
-        registry, backup_mgr, version_mgr, plugin_mgr, installer = initialize_managers()
+        registry, backup_mgr, version_mgr, plugin_mgr, mcp_mgr, installer = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         return
@@ -777,21 +847,22 @@ def interactive_install():
 def interactive_plugins():
     """Interactive plugin management."""
     try:
-        _, _, _, plugin_mgr, _ = initialize_managers()
+        _, _, _, plugin_mgr, _, _ = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         return
 
+    # External plugins
     status_dict = plugin_mgr.check_installed()
     missing = plugin_mgr.get_missing_plugins()
 
-    console.print("\n[bold]Plugin Status:[/bold]")
+    console.print("\n[bold cyan]External Plugins[/bold cyan] (from npm/marketplace)")
     for plugin_name, is_installed in status_dict.items():
         status = "[green]✓ Installed[/green]" if is_installed else "[red]✗ Not installed[/red]"
         console.print(f"  {plugin_name}: {status}")
 
     if missing:
-        console.print("\n[bold yellow]Missing Plugins:[/bold yellow]")
+        console.print("\n[bold yellow]Missing External Plugins:[/bold yellow]")
         for plugin in missing:
             console.print(f"  • {plugin['name']}: {plugin['description']}")
 
@@ -810,13 +881,87 @@ def interactive_plugins():
                 else:
                     print_error(f"Failed to install {plugin_name}: {message}")
     else:
-        print_success("All required plugins are installed")
+        print_success("All required external plugins are installed")
+
+    # Custom plugins
+    custom_status = plugin_mgr.check_custom_plugins_installed()
+    if custom_status:
+        console.print("\n[bold cyan]Custom Plugins[/bold cyan] (from team config)")
+        for name, installed in custom_status.items():
+            status = "[green]✓ Installed[/green]" if installed else "[red]✗ Not installed[/red]"
+            console.print(f"  {name}: {status}")
+
+        missing_custom = [k for k, v in custom_status.items() if not v]
+        if missing_custom:
+            console.print("\n[yellow]To install custom plugins:[/yellow]")
+            console.print("  claude-setup install --category custom-plugins")
+
+
+def interactive_mcp_servers():
+    """Interactive MCP server management."""
+    try:
+        _, _, _, _, mcp_mgr, _ = initialize_managers()
+    except Exception as e:
+        print_error(f"Initialization failed: {e}")
+        return
+
+    if not mcp_mgr.required_servers:
+        print_info("No MCP servers configured in this setup")
+        return
+
+    configured = mcp_mgr.check_configured()
+
+    console.print("\n[bold cyan]External MCP Servers[/bold cyan]\n")
+
+    # Display status
+    for server in mcp_mgr.required_servers:
+        name = server["name"]
+        desc = server.get("description", "")
+        is_configured = configured[name]
+
+        console.print(f"[bold]{name}[/bold] - {desc}")
+
+        if is_configured:
+            available, msg = mcp_mgr.check_server_executable(server)
+            console.print(f"  Configuration: [green]✓ Configured[/green]")
+            if available:
+                console.print(f"  Executable: [green]✓ Available[/green]")
+            else:
+                console.print(f"  Executable: [yellow]⚠ {msg}[/yellow]")
+        else:
+            console.print(f"  Configuration: [red]✗ Not configured[/red]")
+            console.print(f"  Executable: [dim]—[/dim]")
+
+        console.print()
+
+    # Custom MCP servers (if any)
+    config_dir = get_config_dir()
+    custom_source = config_dir / "mcp-servers" / "custom"
+    custom_status = mcp_mgr.check_custom_servers_installed(custom_source)
+
+    if custom_status:
+        console.print("[bold cyan]Custom MCP Servers[/bold cyan]\n")
+        for name, installed in custom_status.items():
+            status = "[green]✓ Installed[/green]" if installed else "[red]✗ Not installed[/red]"
+            console.print(f"  {name}: {status}")
+        console.print()
+
+    # Show installation instructions if needed
+    missing = mcp_mgr.get_missing_servers()
+    if missing:
+        if questionary.confirm("Show installation instructions for missing servers?", default=True).ask():
+            console.print("\n[bold yellow]Installation Instructions:[/bold yellow]\n")
+            for server in missing:
+                console.print(f"[bold]{server['name']}:[/bold]")
+                for instruction in mcp_mgr.get_install_instructions(server):
+                    console.print(f"  {instruction}")
+                console.print()
 
 
 def interactive_backups():
     """Interactive backup management."""
     try:
-        _, backup_mgr, _, _, _ = initialize_managers()
+        _, backup_mgr, _, _, _, _ = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         return
@@ -857,7 +1002,7 @@ def interactive_backups():
 def interactive_rollback():
     """Interactive rollback."""
     try:
-        _, backup_mgr, _, _, _ = initialize_managers()
+        _, backup_mgr, _, _, _, _ = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         return
@@ -904,7 +1049,7 @@ def interactive_rollback():
 def interactive_update():
     """Interactive update check and install."""
     try:
-        registry, _, version_mgr, _, installer = initialize_managers()
+        registry, _, version_mgr, _, _, installer = initialize_managers()
     except Exception as e:
         print_error(f"Initialization failed: {e}")
         return

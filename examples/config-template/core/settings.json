@@ -14,5 +14,6 @@
     "command": "bash {{HOME}}/.claude/statusline.sh"
   },
   "enabledPlugins": {},
+  "mcpServers": {},
   "alwaysThinkingEnabled": false
 }

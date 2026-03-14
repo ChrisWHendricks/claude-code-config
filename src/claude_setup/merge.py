@@ -12,6 +12,7 @@ def merge_settings(source: dict[str, Any], target: dict[str, Any]) -> dict[str, 
     - Union permissions.allow (team + user, sorted)
     - Preserve user's permissions.deny and permissions.ask
     - Union enabledPlugins (team plugins added, user extras preserved)
+    - Union mcpServers (team servers added, user extras preserved)
     - Overwrite model, statusLine, alwaysThinkingEnabled with team standard
     - Preserve feedbackSurveyState and any unknown keys
 
@@ -49,6 +50,12 @@ def merge_settings(source: dict[str, Any], target: dict[str, Any]) -> dict[str, 
     if "enabledPlugins" in source or "enabledPlugins" in target:
         result["enabledPlugins"] = _merge_plugins(
             source.get("enabledPlugins", {}), target.get("enabledPlugins", {})
+        )
+
+    # Union mcpServers
+    if "mcpServers" in source or "mcpServers" in target:
+        result["mcpServers"] = _merge_mcp_servers(
+            source.get("mcpServers", {}), target.get("mcpServers", {})
         )
 
     # Preserve feedbackSurveyState (user-specific)
@@ -92,6 +99,30 @@ def _merge_plugins(source: dict[str, bool], target: dict[str, bool]) -> dict[str
     result.update(target)
 
     # Add team plugins (overwrites if user disabled)
+    result.update(source)
+
+    return result
+
+
+def _merge_mcp_servers(source: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
+    """Merge MCP servers - union of team and user servers.
+
+    Team servers overwrite user servers with same name.
+    User-only servers are preserved.
+
+    Args:
+        source: Team MCP servers
+        target: User's MCP servers
+
+    Returns:
+        Merged MCP servers dict
+    """
+    result = {}
+
+    # Start with user servers
+    result.update(target)
+
+    # Add/overwrite with team servers
     result.update(source)
 
     return result
