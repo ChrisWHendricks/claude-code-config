@@ -8,11 +8,16 @@ Claude Setup is a pluggable CLI tool for managing Claude Code team configuration
 
 **Key Architecture Principle**: Clean separation between tool and configuration. This repo contains the tool only; configuration is fetched from sources defined in `~/.claude/sources.json`.
 
-**Current Version**: 4.0.0
+**Current Version**: 4.0.1
+
+**Latest Changes (4.0.1)**:
+- Fixed plugin detection to support marketplace-qualified names
+- Fixed update detection excluding git metadata from hash calculation
+- Added `mcp_merge` field to FileEntry for MCP-specific merge logic
+
+**Version 4.0.0**:
 - Added custom plugins and MCP servers support
 - MCP server configuration with smart merge for .mcp.json
-- Fixed update detection to exclude git metadata from hash calculation
-- Added `mcp_merge` field to FileEntry for MCP-specific merge logic
 - Beginner-friendly init wizard with 5 intuitive options
 - Consistent git clone behavior for all repository types
 - Admin functions separated into dedicated submenu
