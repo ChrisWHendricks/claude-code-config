@@ -359,7 +359,7 @@ claude-setup install --all
 
 ```bash
 # Team members use original tool
-git clone git@github.com:travis-jorge/claude-code-config.git
+git clone git@github.com:chris.hendricks/claude-code-config.git
 cd claude-setup
 pip install -e .
 
@@ -386,7 +386,7 @@ claude-setup install --all
 set -e
 
 echo "Installing claude-setup..."
-git clone https://github.com/travis-jorge/claude-code-config.git ~/claude-setup
+git clone https://github.com/chris.hendricks/claude-code-config.git ~/claude-setup
 cd ~/claude-setup
 pip install -e .
 
@@ -641,7 +641,7 @@ git push -u origin main
 ```bash
 cat > setup.sh << 'EOF'
 #!/bin/bash
-git clone https://github.com/travis-jorge/claude-code-config.git ~/claude-setup
+git clone https://github.com/chris.hendricks/claude-code-config.git ~/claude-setup
 cd ~/claude-setup
 pip install -e .
 
@@ -678,4 +678,4 @@ For questions about:
 - **Your team's config**: Contact your admin
 
 For feature requests or bugs in claude-setup:
-https://github.com/travis-jorge/claude-code-config/issues
+https://github.com/chris.hendricks/claude-code-config/issues

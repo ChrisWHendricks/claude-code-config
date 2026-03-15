@@ -4,7 +4,7 @@
 
 Perfect for teams who want to standardize their Claude Code setup across developers while keeping control of their configuration.
 
-[![Tests](https://github.com/travis-jorge/claude-code-config/actions/workflows/test.yml/badge.svg)](https://github.com/travis-jorge/claude-code-config/actions/workflows/test.yml)
+[![Tests](https://github.com/chris.hendricks/claude-code-config/actions/workflows/test.yml/badge.svg)](https://github.com/chris.hendricks/claude-code-config/actions/workflows/test.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -31,7 +31,7 @@ Your admin should provide you with either a setup script or source configuration
 **Option 1: Using the Interactive Wizard (Easiest - v3.4.0+)**
 ```bash
 # 1. Install tool
-git clone https://github.com/travis-jorge/claude-code-config.git
+git clone https://github.com/chris.hendricks/claude-code-config.git
 cd claude-setup
 pip install -e .
 
@@ -55,7 +55,7 @@ claude-setup plugins
 **Option 2: Direct command (if you know the source)**
 ```bash
 # 1. Install tool
-git clone https://github.com/travis-jorge/claude-code-config.git
+git clone https://github.com/chris.hendricks/claude-code-config.git
 cd claude-setup
 pip install -e .
 
@@ -353,7 +353,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## 🙋 Support
 
 **For tool issues:**
-- GitHub Issues: https://github.com/travis-jorge/claude-code-config/issues
+- GitHub Issues: https://github.com/chris.hendricks/claude-code-config/issues
 - Documentation: README.md, ADMIN-GUIDE.md
 
 **For your organization's config:**
@@ -375,6 +375,10 @@ Organizations using Claude Setup:
 - ✅ Multi-source support
 - ✅ Interactive menu
 - ✅ Automatic updates
+
+## 🙏 Credits
+
+This project is forked from [Travis Jorge's](https://github.com/travis-jorge) original work. Special thanks to Travis for creating the foundation and architecture that made this tool possible.
 
 ---
 
