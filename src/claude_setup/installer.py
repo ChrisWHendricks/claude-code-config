@@ -176,6 +176,12 @@ class Installer:
                     # Handle settings.json merge
                     self._merge_settings_file(file_entry, target_base)
                     stats["merged"] = True
+
+                    # Also merge MCP servers into ~/.claude.json if this is settings.json
+                    if file_entry.dest == "settings.json":
+                        src_path = self.config_dir / file_entry.src
+                        source_settings = load_settings(src_path)
+                        self.merge_mcp_servers_to_claude_json(source_settings)
                 else:
                     # Regular file copy
                     result = self.install_file(file_entry, target_base)
@@ -265,6 +271,56 @@ class Installer:
 
         # Save merged settings
         save_settings(dest_path, merged_settings)
+
+    def merge_mcp_servers_to_claude_json(self, source_settings: dict) -> None:
+        """Merge MCP servers into ~/.claude.json (user-wide scope).
+
+        Args:
+            source_settings: Settings containing mcpServers to merge
+        """
+        import json
+        import shutil
+        from datetime import datetime
+
+        # Path to .claude.json (parent of .claude directory)
+        claude_json_path = self.target_dir.parent / ".claude.json"
+
+        # Get MCP servers from source
+        source_mcp = source_settings.get("mcpServers", {})
+        if not source_mcp:
+            return  # Nothing to merge
+
+        # Backup existing .claude.json
+        if claude_json_path.exists():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = self.target_dir.parent / f".claude.json.backup_{timestamp}"
+            shutil.copy2(claude_json_path, backup_path)
+
+        # Load existing .claude.json or create new structure
+        if claude_json_path.exists():
+            try:
+                with open(claude_json_path, 'r') as f:
+                    claude_data = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                claude_data = {}
+        else:
+            claude_data = {}
+
+        # Get existing mcpServers at root level (user-wide)
+        existing_mcp = claude_data.get("mcpServers", {})
+
+        # Merge: add source servers, preserve existing user servers
+        merged_mcp = {}
+        merged_mcp.update(existing_mcp)  # Start with user's servers
+        merged_mcp.update(source_mcp)    # Add/overwrite with team servers
+
+        # Update mcpServers in .claude.json
+        claude_data["mcpServers"] = merged_mcp
+
+        # Save back to .claude.json
+        with open(claude_json_path, 'w') as f:
+            json.dump(claude_data, f, indent=2)
+            f.write('\n')  # Add trailing newline
 
     def _apply_templates(self, content: str) -> str:
         """Apply template variable resolution.
