@@ -99,8 +99,16 @@ class VersionManager:
             if not file_path.is_file():
                 continue
 
-            # Skip hidden files and system files
-            if file_path.name.startswith("."):
+            # Skip version control and build artifacts
+            if any(part in [".git", ".claude-plugin"] for part in file_path.parts):
+                continue
+
+            # Skip gitignore files (not part of actual config content)
+            if file_path.name == ".gitignore":
+                continue
+
+            # Skip other system/metadata files but allow config files like .mcp.json
+            if file_path.name.startswith(".") and not file_path.name.endswith(".json"):
                 continue
 
             # Add file path (for structure changes) and content

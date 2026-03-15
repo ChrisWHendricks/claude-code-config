@@ -15,6 +15,7 @@ class FileEntry:
     merge: bool = False
     executable: bool = False
     template: bool = False
+    mcp_merge: bool = False
 
 
 @dataclass

@@ -8,8 +8,12 @@ Claude Setup is a pluggable CLI tool for managing Claude Code team configuration
 
 **Key Architecture Principle**: Clean separation between tool and configuration. This repo contains the tool only; configuration is fetched from sources defined in `~/.claude/sources.json`.
 
-**Current Version**: 3.4.0
-- Added beginner-friendly init wizard with 5 intuitive options
+**Current Version**: 4.0.0
+- Added custom plugins and MCP servers support
+- MCP server configuration with smart merge for .mcp.json
+- Fixed update detection to exclude git metadata from hash calculation
+- Added `mcp_merge` field to FileEntry for MCP-specific merge logic
+- Beginner-friendly init wizard with 5 intuitive options
 - Consistent git clone behavior for all repository types
 - Admin functions separated into dedicated submenu
 - Automated CI/CD with GitHub Actions
@@ -98,15 +102,22 @@ Sources are cached in `~/.claude/sources/` to avoid repeated fetches.
 
 **`categories.py`** - Configuration structure:
 - Loads `manifest.json` from config source
-- Defines categories (core, agents, rules, commands, plugins)
-- Each category has install_type: merge, overwrite, discover, or check
+- Defines categories (core, agents, rules, commands, plugins, marketplaces, mcp-servers)
+- Each category has install_type: merge, overwrite, discover, check, marketplace, or mcp-merge
 - File discovery for recursive directories (commands category)
+- FileEntry supports `mcp_merge` field for MCP-specific merge operations
 
 **`merge.py`** - Smart settings.json merging:
 - **Union**: `permissions.allow` and `enabledPlugins` (team + user)
 - **Preserve**: `permissions.deny`, `permissions.ask`, `feedbackSurveyState`, unknown keys
 - **Overwrite**: `model`, `statusLine`, `alwaysThinkingEnabled` (team standard)
 - Template resolution: `{{HOME}}` → actual home directory path
+
+**`mcp_servers.py`** - MCP server management (v4.0.0+):
+- Smart merge for .mcp.json (team servers + user servers)
+- Custom MCP server installation from config
+- Server status checking and validation
+- Interactive MCP server management UI
 
 **`backup.py`** - Backup/rollback system:
 - Timestamped backups: `~/.claude/backups/claude-setup-YYYY-MM-DD-HHMMSS/`
@@ -125,6 +136,8 @@ Sources are cached in `~/.claude/sources/` to avoid repeated fetches.
 **`version.py`** - Update detection:
 - Version stamp: `~/.claude/.claude-setup-version.json`
 - SHA256 hash of all config files for change detection
+- Excludes git metadata (.git), build artifacts (.claude-plugin), and .gitignore from hash
+- Includes config files like .mcp.json while excluding other hidden files
 - Compares installed vs available to detect updates
 
 **`plugins.py`** - Plugin management:
@@ -202,14 +215,30 @@ See `examples/config-template/` for a complete template.
       "name": "core",
       "description": "Core configuration files",
       "target_dir": ".claude",
-      "install_type": "merge",  // merge|overwrite|discover|check
+      "install_type": "merge",
       "files": [
         {
           "src": "core/settings.json",
           "dest": "settings.json",
-          "merge": true,          // Use smart merge
+          "merge": true,          // Use smart merge for settings.json
           "executable": false,
           "template": true        // Resolve {{HOME}}
+        }
+      ]
+    },
+    {
+      "name": "mcp-servers",
+      "description": "MCP server configurations",
+      "target_dir": ".claude",
+      "install_type": "mcp-merge",
+      "files": [
+        {
+          "src": "mcp/.mcp.json",
+          "dest": ".mcp.json",
+          "merge": false,
+          "mcp_merge": true,      // Use MCP-specific merge logic
+          "executable": false,
+          "template": true
         }
       ]
     }
@@ -222,6 +251,8 @@ See `examples/config-template/` for a complete template.
 - `overwrite` - Replace existing files
 - `discover` - Recursively find all files in directory
 - `check` - Validation only (used for plugins)
+- `marketplace` - Plugin marketplace configuration
+- `mcp-merge` - MCP server configuration with smart merge
 
 ### Interactive Menu Flow
 
@@ -232,11 +263,12 @@ When run without arguments, `cli.py` launches `interactive_menu()`:
 4. Returns to main menu with `press_any_key_to_continue()`
 5. `console.clear()` between iterations
 
-**Main Menu options** (v3.4.0+):
+**Main Menu options** (v4.0.0):
 - Setup Configuration → `interactive_init_wizard()` (beginner-friendly wizard)
 - Install Configuration → `interactive_install()` (category selection wizard)
 - Check Status → shows version and update status
 - Manage Plugins → `interactive_plugins()` (plugin installation wizard)
+- Manage MCP Servers → `interactive_mcp_servers()` (MCP server management)
 - View Backups → lists available backups
 - Rollback → `interactive_rollback()` (backup selection wizard)
 - Check for Updates → update detection and installation
@@ -356,6 +388,18 @@ Sources are fetched once and cached in `~/.claude/sources/`:
 - `ZipSource` - extracted to cache
 
 Cache persists across runs for performance.
+
+### Hash Calculation for Update Detection
+
+The config hash (`_compute_config_hash()` in `version.py`) must exclude files that change frequently but aren't part of the actual configuration:
+
+**Excluded from hash**:
+- `.git/` directory and all contents (git metadata changes with every operation)
+- `.claude-plugin/` directories (build artifacts from plugin development)
+- `.gitignore` files (not part of config content)
+- Hidden files except `.json` config files (e.g., `.mcp.json` is included)
+
+**Why this matters**: Without these exclusions, the hash would change after every `git pull` or `git status`, causing the tool to always report "updates available" even when no actual config changed. The hash should only change when config file content changes, not when git metadata updates.
 
 ## Creating Organization Configs
 
