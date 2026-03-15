@@ -264,3 +264,76 @@ class TestPluginManager:
         assert status == {}
         assert missing == []
         assert results == {}
+
+    def test_check_installed_with_marketplace(self, tmp_path):
+        """Test checking plugins with marketplace qualifiers."""
+        claude_dir = tmp_path / ".claude"
+        plugins_dir = claude_dir / "plugins"
+        plugins_dir.mkdir(parents=True)
+
+        # Create installed_plugins.json with marketplace-qualified names
+        installed = {
+            "plugins": {
+                "psc-aws-ops@tyler-psc-plugins": {"version": "1.0.0"},
+                "erms-adapter@tyler-psc-plugins": {"version": "2.0.0"},
+            }
+        }
+        plugins_file = plugins_dir / "installed_plugins.json"
+        plugins_file.write_text(json.dumps(installed))
+
+        # Required plugins specify marketplace
+        required = [
+            {"name": "psc-aws-ops", "marketplace": "tyler-psc-plugins", "description": "AWS ops"},
+            {"name": "erms-adapter", "marketplace": "tyler-psc-plugins", "description": "ERMS"},
+            {"name": "missing-plugin", "marketplace": "tyler-psc-plugins", "description": "Missing"},
+        ]
+        manager = PluginManager(claude_dir, required)
+
+        status = manager.check_installed()
+
+        assert status == {
+            "psc-aws-ops": True,
+            "erms-adapter": True,
+            "missing-plugin": False,
+        }
+
+    def test_get_install_commands_with_marketplace(self, tmp_path):
+        """Test install commands include marketplace qualifier."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+
+        required = [
+            {"name": "plugin1", "marketplace": "my-marketplace", "description": "Test 1"},
+            {"name": "plugin2", "description": "Test 2"},  # No marketplace
+        ]
+        manager = PluginManager(claude_dir, required)
+
+        commands = manager.get_install_commands()
+
+        assert len(commands) == 2
+        assert "claude plugin install plugin1@my-marketplace" in commands
+        assert "claude plugin install plugin2" in commands
+
+    def test_install_all_missing_with_marketplace(self, tmp_path):
+        """Test installing plugins with marketplace qualifiers."""
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+
+        required = [
+            {"name": "plugin1", "marketplace": "my-marketplace", "description": "Test 1"},
+        ]
+        manager = PluginManager(claude_dir, required)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout="Plugin installed successfully",
+                stderr=""
+            )
+
+            results = manager.install_all_missing()
+
+            # Should have called with marketplace-qualified name
+            assert mock_run.call_count == 1
+            call_args = mock_run.call_args[0][0]
+            assert "plugin1@my-marketplace" in call_args

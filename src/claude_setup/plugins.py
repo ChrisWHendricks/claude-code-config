@@ -38,7 +38,16 @@ class PluginManager:
 
         for plugin in self.required_plugins:
             plugin_name = plugin["name"]
-            status[plugin_name] = plugin_name in installed
+            marketplace = plugin.get("marketplace")
+
+            # Build full qualified name if marketplace is specified
+            if marketplace:
+                full_name = f"{plugin_name}@{marketplace}"
+            else:
+                full_name = plugin_name
+
+            # Check both full name and short name for compatibility
+            status[plugin_name] = full_name in installed or plugin_name in installed
 
         return status
 
@@ -74,7 +83,16 @@ class PluginManager:
         commands = []
 
         for plugin in missing:
-            commands.append(f"claude plugin install {plugin['name']}")
+            plugin_name = plugin["name"]
+            marketplace = plugin.get("marketplace")
+
+            # Build full qualified name if marketplace is specified
+            if marketplace:
+                full_name = f"{plugin_name}@{marketplace}"
+            else:
+                full_name = plugin_name
+
+            commands.append(f"claude plugin install {full_name}")
 
         return commands
 
@@ -118,7 +136,15 @@ class PluginManager:
 
         for plugin in missing:
             plugin_name = plugin["name"]
-            success, message = self.install_plugin(plugin_name)
+            marketplace = plugin.get("marketplace")
+
+            # Build full qualified name if marketplace is specified
+            if marketplace:
+                full_name = f"{plugin_name}@{marketplace}"
+            else:
+                full_name = plugin_name
+
+            success, message = self.install_plugin(full_name)
             results[plugin_name] = (success, message)
 
         return results
